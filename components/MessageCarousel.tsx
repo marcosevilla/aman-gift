@@ -121,6 +121,7 @@ export function MessageCarousel({
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [expandedInitialIndex, setExpandedInitialIndex] = useState<number | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
 
   // Continuous offset — 0 = card 0 centered, -SPREAD = card 1 centered, etc.
   const offsetX = useMotionValue(0);
@@ -233,26 +234,28 @@ export function MessageCarousel({
   );
 
   const collapseCard = useCallback(() => {
+    if (isClosing) return;
     // Sync carousel to current expanded card before closing
     if (expandedIndex !== null) {
-      // Snap carousel offset instantly, then clear expanded state
       offsetX.set(-expandedIndex * spreadRef.current);
       setActiveIndex(expandedIndex);
     }
-    setExpandedIndex(null);
-    setExpandedInitialIndex(null);
-  }, [expandedIndex, offsetX]);
+    setIsClosing(true);
+    setTimeout(() => {
+      setExpandedIndex(null);
+      setExpandedInitialIndex(null);
+      setIsClosing(false);
+    }, 350);
+  }, [expandedIndex, offsetX, isClosing]);
 
   const navigateExpanded = useCallback(
     (index: number) => {
+      if (isClosing) return;
       const clamped = Math.max(0, Math.min(index, count - 1));
       setExpandedIndex(clamped);
-      // Only update activeIndex for progress bar — don't animate the carousel
-      // underneath, as that moves the layoutId-sharing card and can trigger
-      // an unwanted shared layout animation that collapses the overlay.
       setActiveIndex(clamped);
     },
-    [count]
+    [count, isClosing]
   );
 
   /* ── Keyboard navigation ─────────────────────── */
@@ -304,6 +307,13 @@ export function MessageCarousel({
         aria-label="Dear Aman,"
       /> */}
 
+      <motion.div
+        animate={{
+          filter: expandedIndex !== null && !isClosing ? "blur(6px)" : "blur(0px)",
+          opacity: expandedIndex !== null && !isClosing ? 0.4 : 1,
+        }}
+        transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+      >
       {/* Carousel track */}
       <div className="relative w-full">
         <motion.div
@@ -350,6 +360,7 @@ export function MessageCarousel({
           />
         </div>
       </div>
+      </motion.div>
 
       {/* "Thank you for everything" — hidden for now */}
       {/* <div
@@ -387,6 +398,7 @@ export function MessageCarousel({
             crossfadeDuration={params.crossfadeDuration}
             backdropBlur={params.backdropBlur}
             showPeekingCards={!isNarrow}
+            isClosing={isClosing}
           />
         )}
       </AnimatePresence>
@@ -543,6 +555,7 @@ interface ExpandedOverlayProps {
   crossfadeDuration: number;
   backdropBlur: number;
   showPeekingCards: boolean;
+  isClosing: boolean;
 }
 
 function ExpandedOverlay({
@@ -557,6 +570,7 @@ function ExpandedOverlay({
   crossfadeDuration,
   backdropBlur,
   showPeekingCards,
+  isClosing,
 }: ExpandedOverlayProps) {
   const message = messages[currentIndex];
   const currentTheme = CARD_THEMES[message.themeIndex];
@@ -666,159 +680,27 @@ function ExpandedOverlay({
       <motion.div
         className="fixed inset-0 z-40"
         initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
-        animate={{ opacity: 1, backdropFilter: `blur(${backdropBlur}px)` }}
+        animate={isClosing
+          ? { opacity: 0, backdropFilter: "blur(0px)" }
+          : { opacity: 1, backdropFilter: `blur(${backdropBlur}px)` }
+        }
         exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
         transition={{ duration: 0.3 }}
       />
 
-      {/* Full-bleed expanded view — bg always solid, never fades */}
+      {/* Full-bleed expanded view */}
       <motion.div
         ref={scrollRef}
-        layoutId={`card-${layoutIndex}`}
+        {...(!isClosing ? { layoutId: `card-${layoutIndex}` } : {})}
         className="fixed inset-0 z-50 overflow-y-auto"
         initial={false}
-        style={{ opacity: 1, touchAction: "pan-y", backgroundColor: currentTheme.bg }}
-        transition={spring}
+        animate={isClosing ? { opacity: 0, filter: "blur(20px)" } : { opacity: 1, filter: "blur(0px)" }}
+        style={{ touchAction: "pan-y", backgroundColor: currentTheme.bg }}
+        transition={isClosing ? { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } : spring}
         onPanStart={handlePanStart}
         onPan={handlePan}
         onPanEnd={handlePanEnd}
       >
-        {/* Desktop: close button top-right */}
-        {showPeekingCards && (
-          <motion.button
-            className="fixed top-5 right-5 z-60 w-10 h-10 rounded-full flex items-center justify-center"
-            style={{
-              backgroundColor: hexToRgba(currentTheme.text, 0.1),
-              backdropFilter: "blur(8px)",
-            }}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ ...springSnappy, delay: 0.15 }}
-            onClick={onClose}
-          >
-            <span className="text-lg leading-none" style={{ color: currentTheme.text }}>✕</span>
-          </motion.button>
-        )}
-
-        {/* Mobile: nav bar sticky at bottom */}
-        {!showPeekingCards && (
-          <motion.div
-            className="fixed bottom-6 left-6 right-6 z-60 flex items-center justify-between"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ ...springSnappy, delay: 0.15 }}
-          >
-            {hasPrev ? (
-              <button
-                className="w-12 h-12 rounded-full flex items-center justify-center"
-                style={{
-                  backgroundColor: hexToRgba(currentTheme.text, 0.12),
-                  backdropFilter: "blur(8px)",
-                }}
-                onClick={() => onNavigate(currentIndex - 1)}
-              >
-                <span className="text-xl leading-none" style={{ color: currentTheme.text }}>←</span>
-              </button>
-            ) : (
-              <div className="w-12" />
-            )}
-
-            <button
-              className="w-12 h-12 rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: hexToRgba(currentTheme.text, 0.12),
-                backdropFilter: "blur(8px)",
-              }}
-              onClick={onClose}
-            >
-              <span className="text-xl leading-none" style={{ color: currentTheme.text }}>✕</span>
-            </button>
-
-            {hasNext ? (
-              <button
-                className="w-12 h-12 rounded-full flex items-center justify-center"
-                style={{
-                  backgroundColor: hexToRgba(currentTheme.text, 0.12),
-                  backdropFilter: "blur(8px)",
-                }}
-                onClick={() => onNavigate(currentIndex + 1)}
-              >
-                <span className="text-xl leading-none" style={{ color: currentTheme.text }}>→</span>
-              </button>
-            ) : (
-              <div className="w-12" />
-            )}
-          </motion.div>
-        )}
-
-        {/* Peeking prev/next preview cards — on mobile, only appear at bottom of scroll */}
-        <AnimatePresence>
-          {hasPrev && mobilePeekVisible && peekReady && (
-            <motion.button
-              key={`peek-left-${currentIndex}`}
-              className="fixed top-1/2 z-60 cursor-pointer left-0"
-              style={{
-                y: "-50%",
-                ...(showPeekingCards ? {} : { x: leftPeekX }),
-                scale: showPeekingCards ? 1 : 0.55,
-                transformOrigin: "left center",
-              }}
-              initial={{ opacity: 0, x: "-100%" }}
-              animate={{
-                opacity: 1,
-                rotate: -6,
-                ...(showPeekingCards ? { x: `${-peekHidden}%` } : {}),
-              }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              whileHover={showPeekingCards ? {
-                x: "-15%",
-                rotate: -1,
-              } : undefined}
-              exit={{
-                x: "-100%",
-                opacity: 0,
-                transition: { type: "spring", visualDuration: 0.2, bounce: 0 },
-              }}
-              onClick={(e) => { e.stopPropagation(); onNavigate(currentIndex - 1); }}
-            >
-              <PeekingCardContent message={messages[currentIndex - 1]} />
-            </motion.button>
-          )}
-          {hasNext && mobilePeekVisible && peekReady && (
-            <motion.button
-              key={`peek-right-${currentIndex}`}
-              className="fixed top-1/2 z-60 cursor-pointer right-0"
-              style={{
-                y: "-50%",
-                ...(showPeekingCards ? {} : { x: rightPeekX }),
-                scale: showPeekingCards ? 1 : 0.55,
-                transformOrigin: "right center",
-              }}
-              initial={{ opacity: 0, x: "100%" }}
-              animate={{
-                opacity: 1,
-                rotate: 6,
-                ...(showPeekingCards ? { x: `${peekHidden}%` } : {}),
-              }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              whileHover={showPeekingCards ? {
-                x: "15%",
-                rotate: 1,
-              } : undefined}
-              exit={{
-                x: "100%",
-                opacity: 0,
-                transition: { type: "spring", visualDuration: 0.2, bounce: 0 },
-              }}
-              onClick={(e) => { e.stopPropagation(); onNavigate(currentIndex + 1); }}
-            >
-              <PeekingCardContent message={messages[currentIndex + 1]} />
-            </motion.button>
-          )}
-        </AnimatePresence>
-
         {/* Crossfading content — centered with max-width for readability */}
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
@@ -889,6 +771,142 @@ function ExpandedOverlay({
           </motion.div>
         </AnimatePresence>
       </motion.div>
+
+      {/* Desktop: close button top-right — outside scroll container so fixed works */}
+      {showPeekingCards && (
+        <motion.button
+          className="fixed top-5 right-5 z-60 w-10 h-10 rounded-full flex items-center justify-center"
+          style={{
+            backgroundColor: hexToRgba(currentTheme.text, 0.1),
+            backdropFilter: "blur(8px)",
+          }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={isClosing ? { opacity: 0, scale: 0.8 } : { opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ ...springSnappy, delay: isClosing ? 0 : 0.15 }}
+          onClick={onClose}
+        >
+          <span className="text-lg leading-none" style={{ color: currentTheme.text }}>✕</span>
+        </motion.button>
+      )}
+
+      {/* Mobile: nav bar sticky at bottom */}
+      {!showPeekingCards && (
+        <motion.div
+          className="fixed bottom-6 left-6 right-6 z-60 flex items-center justify-between"
+          initial={{ opacity: 0, y: 20 }}
+          animate={isClosing ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ ...springSnappy, delay: isClosing ? 0 : 0.15 }}
+        >
+          {hasPrev ? (
+            <button
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: hexToRgba(currentTheme.text, 0.12),
+                backdropFilter: "blur(8px)",
+              }}
+              onClick={() => onNavigate(currentIndex - 1)}
+            >
+              <span className="text-xl leading-none" style={{ color: currentTheme.text }}>←</span>
+            </button>
+          ) : (
+            <div className="w-12" />
+          )}
+
+          <button
+            className="w-12 h-12 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: hexToRgba(currentTheme.text, 0.12),
+              backdropFilter: "blur(8px)",
+            }}
+            onClick={onClose}
+          >
+            <span className="text-xl leading-none" style={{ color: currentTheme.text }}>✕</span>
+          </button>
+
+          {hasNext ? (
+            <button
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: hexToRgba(currentTheme.text, 0.12),
+                backdropFilter: "blur(8px)",
+              }}
+              onClick={() => onNavigate(currentIndex + 1)}
+            >
+              <span className="text-xl leading-none" style={{ color: currentTheme.text }}>→</span>
+            </button>
+          ) : (
+            <div className="w-12" />
+          )}
+        </motion.div>
+      )}
+
+      {/* Peeking prev/next preview cards */}
+      <AnimatePresence>
+        {hasPrev && mobilePeekVisible && peekReady && !isClosing && (
+          <motion.button
+            key={`peek-left-${currentIndex}`}
+            className="fixed top-1/2 z-60 cursor-pointer left-0"
+            style={{
+              y: "-50%",
+              ...(showPeekingCards ? {} : { x: leftPeekX }),
+              scale: showPeekingCards ? 1 : 0.55,
+              transformOrigin: "left center",
+            }}
+            initial={{ opacity: 0, x: "-100%" }}
+            animate={{
+              opacity: 1,
+              rotate: -6,
+              ...(showPeekingCards ? { x: `${-peekHidden}%` } : {}),
+            }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            whileHover={showPeekingCards ? {
+              x: "-15%",
+              rotate: -1,
+            } : undefined}
+            exit={{
+              x: "-100%",
+              opacity: 0,
+              transition: { type: "spring", visualDuration: 0.2, bounce: 0 },
+            }}
+            onClick={(e) => { e.stopPropagation(); onNavigate(currentIndex - 1); }}
+          >
+            <PeekingCardContent message={messages[currentIndex - 1]} />
+          </motion.button>
+        )}
+        {hasNext && mobilePeekVisible && peekReady && !isClosing && (
+          <motion.button
+            key={`peek-right-${currentIndex}`}
+            className="fixed top-1/2 z-60 cursor-pointer right-0"
+            style={{
+              y: "-50%",
+              ...(showPeekingCards ? {} : { x: rightPeekX }),
+              scale: showPeekingCards ? 1 : 0.55,
+              transformOrigin: "right center",
+            }}
+            initial={{ opacity: 0, x: "100%" }}
+            animate={{
+              opacity: 1,
+              rotate: 6,
+              ...(showPeekingCards ? { x: `${peekHidden}%` } : {}),
+            }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            whileHover={showPeekingCards ? {
+              x: "15%",
+              rotate: 1,
+            } : undefined}
+            exit={{
+              x: "100%",
+              opacity: 0,
+              transition: { type: "spring", visualDuration: 0.2, bounce: 0 },
+            }}
+            onClick={(e) => { e.stopPropagation(); onNavigate(currentIndex + 1); }}
+          >
+            <PeekingCardContent message={messages[currentIndex + 1]} />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </>
   );
 }
