@@ -13,14 +13,22 @@ A sentimental farewell experience for Aman Shahi — an interactive digital card
 ## Project Structure
 ```
 app/
-  layout.tsx        — Root layout
-  page.tsx          — Main entry point
-  globals.css       — Global styles + Tailwind
+  layout.tsx              — Root layout (+ Agentation dev toolbar)
+  page.tsx                — Main entry point (phase state machine)
+  globals.css             — Global styles + Tailwind theme
   favicon.ico
-public/             — Static assets (images, fonts)
-next.config.ts      — Next.js config (React Compiler enabled)
-tailwind.config.ts  — Tailwind configuration
-postcss.config.mjs  — PostCSS config
+components/
+  MessageCarousel.tsx     — Swipeable carousel + expanded card overlay (replaced CardStack/CardFan)
+  MessageCard.tsx         — Full message display + floating photos + audio play button
+  Envelope.tsx            — Opening animation
+  CoverCard.tsx           — Cover screen
+  FinalCard.tsx           — End screen with confetti
+data/
+  messages.ts             — TeamMessage[] (18 messages, optional audio field)
+public/photos/            — Photo assets
+public/music/             — Audio clips (e.g. houdini.mp3 for Becca)
+next.config.ts            — Next.js config (React Compiler enabled)
+postcss.config.mjs        — PostCSS config
 ```
 
 ## Commands
@@ -36,5 +44,20 @@ postcss.config.mjs  — PostCSS config
 - FigJam source: https://www.figma.com/board/UYI3L2trLTlakiiTsxxe8d/au-revoir
 
 ## Current State
-- Initial scaffold complete
-- No content or components built yet
+- **Last worked on:** Audio play button on Becca's photo (Dua Lipa / Houdini reference)
+- **Completed this session:**
+  - Added `audio?: string` field to `TeamMessage` interface
+  - Implemented audio play/pause button overlaid on Becca's inline photo
+  - Smooth fade-in/fade-out (400ms rAF-based volume interpolation) on play, pause, and track end
+  - Disabled photo-expand on audio photos — entire photo area is play/pause only
+  - Bigger play button (64px circle, 24px icons) with `group-hover:scale-110` hover state
+  - Audio auto-stops on unmount (navigating away from Becca's card)
+  - Threaded `audio` prop through MessageCarousel → FloatingPhotos
+- **In progress:** Handwritten name SVGs (researched, Calligrapher.ai recommended, not yet implemented)
+- **Known issues:**
+  - Agentation MCP server needs Claude Code restart to load
+  - DialKit spring config objects cause TS errors — use folder of explicit sliders instead
+- **Files modified this session:**
+  - `data/messages.ts` (added `audio` field to interface + Becca's entry)
+  - `components/MessageCard.tsx` (audio play button, fade logic, disabled expand for audio photos)
+  - `components/MessageCarousel.tsx` (threaded `audio` prop to inline FloatingPhotos)
