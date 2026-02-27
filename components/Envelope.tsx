@@ -1,17 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useDialKit } from "dialkit";
+
+/* ─────────────────────────────────────────────────────────
+ * ANIMATION STORYBOARD — Envelope
+ *
+ * Read top-to-bottom. Each `at` value is ms after tap.
+ *
+ *    0ms   idle — envelope bobs, "Tap to open" pulses
+ *    0ms   [tap] flap rotates open, "For Aman" fades out
+ *  400ms   letter slides up from inside envelope
+ *  800ms   envelope body shrinks + fades away
+ * 1400ms   phase transition → CoverCard
+ * ───────────────────────────────────────────────────────── */
 
 interface EnvelopeProps {
   onOpen: () => void;
 }
 
 export function Envelope({ onOpen }: EnvelopeProps) {
-  const [isOpening, setIsOpening] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [stage, setStage] = useState(0);
 
-  /* ── DialKit: Envelope Opening ─────────────── */
+  /* ── DialKit: Envelope ──────────────────────── */
   const env = useDialKit("Envelope", {
     flapDuration: [0.6, 0.2, 1.5],
     letterDelay: [0.4, 0, 1],
@@ -24,10 +37,25 @@ export function Envelope({ onOpen }: EnvelopeProps) {
     bobDuration: [3, 1, 6],
   });
 
+  /* ── Stage progression — runs once when opened ── */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setStage(1); // flap opens, text fades, letter renders
+
+    const timers = [
+      setTimeout(() => setStage(2), env.letterDelay * 1000),   // letter slides
+      setTimeout(() => setStage(3), env.bodyFadeDelay * 1000), // body fades
+      setTimeout(() => { setStage(4); onOpen(); }, env.phaseDelay), // phase change
+    ];
+
+    return () => timers.forEach(clearTimeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const handleOpen = () => {
-    if (isOpening) return;
-    setIsOpening(true);
-    setTimeout(onOpen, env.phaseDelay);
+    if (isOpen) return;
+    setIsOpen(true);
   };
 
   return (
@@ -37,7 +65,7 @@ export function Envelope({ onOpen }: EnvelopeProps) {
         onClick={handleOpen}
         whileTap={{ scale: 0.98 }}
         animate={
-          !isOpening
+          stage === 0
             ? {
                 y: [0, -env.bobAmplitude, 0],
                 transition: {
@@ -59,12 +87,12 @@ export function Envelope({ onOpen }: EnvelopeProps) {
             `,
           }}
           animate={
-            isOpening
+            stage >= 3
               ? {
                   scale: 0.9,
                   y: 40,
                   opacity: 0,
-                  transition: { delay: env.bodyFadeDelay, duration: env.bodyFadeDuration, ease: "easeIn" },
+                  transition: { duration: env.bodyFadeDuration, ease: "easeIn" },
                 }
               : {}
           }
@@ -88,10 +116,10 @@ export function Envelope({ onOpen }: EnvelopeProps) {
             background: `linear-gradient(180deg, #D4B896 0%, #E8D5B7 100%)`,
             clipPath: "polygon(0 0, 50% 100%, 100% 0)",
             borderRadius: "12px 12px 0 0",
-            zIndex: isOpening ? 1 : 3,
+            zIndex: stage >= 1 ? 1 : 3,
           }}
           animate={
-            isOpening
+            stage >= 1
               ? {
                   rotateX: -180,
                   transition: { duration: env.flapDuration, ease: [0.4, 0, 0.2, 1] },
@@ -104,7 +132,7 @@ export function Envelope({ onOpen }: EnvelopeProps) {
         <motion.div
           className="absolute inset-0 flex items-center justify-center pt-6 z-[2]"
           animate={
-            isOpening
+            stage >= 1
               ? { opacity: 0, transition: { duration: 0.3 } }
               : {}
           }
@@ -115,19 +143,18 @@ export function Envelope({ onOpen }: EnvelopeProps) {
         </motion.div>
 
         {/* Letter sliding out — layoutId links to CoverCard for morph */}
-        {isOpening && (
+        {stage >= 1 && (
           <motion.div
             layoutId="letter-to-cover"
             className="absolute left-4 right-4 h-[180px] bg-paper-50 rounded-xl z-[4]"
             initial={{ y: 20, opacity: 0 }}
             animate={{
-              y: env.letterSlideY,
-              opacity: 1,
-              transition: {
-                delay: env.letterDelay,
-                duration: env.letterDuration,
-                ease: [0.2, 0, 0, 1],
-              },
+              y: stage >= 2 ? env.letterSlideY : 20,
+              opacity: stage >= 2 ? 1 : 0,
+            }}
+            transition={{
+              duration: env.letterDuration,
+              ease: [0.2, 0, 0, 1],
             }}
             style={{
               boxShadow: "0 4px 16px rgba(61, 44, 30, 0.12)",
@@ -140,7 +167,7 @@ export function Envelope({ onOpen }: EnvelopeProps) {
       <motion.p
         className="mt-10 text-sm text-ink-faint"
         animate={
-          !isOpening
+          stage === 0
             ? {
                 opacity: [0.3, 0.7, 0.3],
                 transition: { duration: 2.5, repeat: Infinity },
