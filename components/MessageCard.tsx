@@ -15,6 +15,7 @@ interface MessageCardProps {
   fullBleed?: boolean; // true in expanded view — no bg/shadow/radius
   inlinePhotos?: React.ReactNode; // rendered between paragraphs
   photoAfterParagraph?: number; // insert inlinePhotos after this paragraph index
+  postscript?: string; // grey placeholder text rendered after signature
 }
 
 interface FloatingPhotosProps {
@@ -34,7 +35,7 @@ const photoPositions = [
   { bottom: "-10%", right: "6%", rotate: 6 },
 ];
 
-export function MessageCard({ sender, message, signature, theme, fullBleed, inlinePhotos, photoAfterParagraph }: MessageCardProps) {
+export function MessageCard({ sender, message, signature, theme, fullBleed, inlinePhotos, photoAfterParagraph, postscript }: MessageCardProps) {
   /* ── DialKit: Content Timing ────────────────── */
   const timing = useDialKit("Content Timing", {
     delayChildren: [0.15, 0, 0.8],
@@ -199,6 +200,24 @@ export function MessageCard({ sender, message, signature, theme, fullBleed, inli
                 WebkitMaskPosition: "left center",
               }}
             />
+          </motion.div>
+        )}
+
+        {/* Grey placeholder box (e.g. Kevin's missing photo) */}
+        {postscript && (
+          <motion.div
+            className="mt-10 rounded-xl px-6 py-8 text-center"
+            style={{
+              backgroundColor: theme.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)",
+              color: theme.text,
+              opacity: 0.6,
+              fontSize: `${typo.fontSize - 2}px`,
+              lineHeight: typo.lineHeight,
+              fontFamily: "var(--font-newsreader), 'Newsreader', Georgia, serif",
+            }}
+            variants={messageVariants}
+          >
+            {postscript}
           </motion.div>
         )}
       </motion.div>

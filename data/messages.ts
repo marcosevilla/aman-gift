@@ -6,6 +6,7 @@ export interface TeamMessage {
   photoAfterParagraph?: number; // insert photos after this paragraph index (0-based)
   inlinePhotoCount?: number; // how many photos go inline (rest render below); defaults to all
   audio?: string; // filename in /public/music/
+  postscript?: string; // grey placeholder text rendered after signature
   themeIndex: number; // index into CARD_THEMES array
 }
 
@@ -38,6 +39,7 @@ export const messages: TeamMessage[] = [
     themeIndex: 3,
     message:
       "What a whirlwind 2 years its been, never thought that 10 years ago when we grabbed lunch at 1455 that we'd be working together at some point. Honestly crazy given all the overlaps that it didn't happen sooner but here we are\n\nThanks for pushing me to grow in ways I didn't expect, I'm a better PM as a result of working together with you and for that I'll always be grateful Everytime i see lenny's podcast i'll think of you! See you in montgomery soon!",
+    postscript: "Was going to add a photo from HS but it ended up being embarrassing to both of us so just going to use this placeholder if you did want to see it; lmk",
     photos: [],
   },
   {
@@ -96,8 +98,9 @@ export const messages: TeamMessage[] = [
     themeIndex: 19,
     message:
       "Hi Aman!\n\nI can't thank you enough for taking a chance on me 2.5 years ago as your first hire at Canary. Back then you painted a clear vision for how the Product Team and Canary would grow. It's safe to say you backed it up.\n\nI remember being the wide-eyed newbie designer on the team, mentioning to you that this was the biggest Product org I'd ever been a part of (which is crazy to say, I know). Since then we've only gotten bigger and upped the ante. I'm still in awe of the talented group of people you brought together, the products we've launched, and all the invaluable lessons.\n\nYour passion for this company, your honesty, and your mentorship will be dearly missed. But more importantly, we'll miss your annual karaoke performance of \"I Want It That Way\" and your dad jokes (which I honestly found hilarious. PJ says I have dad humor).\n\nOnto the next adventure. Don't be a stranger!\n\nBest,",
-    photos: ["marco1.jpeg"],
+    photos: ["marco1.jpeg", "marco2.jpg", "marco3.jpg"],
     photoAfterParagraph: 3,
+    inlinePhotoCount: 1,
     audio: "iwantitthatway.mp3",
   },
   {
@@ -105,7 +108,7 @@ export const messages: TeamMessage[] = [
     themeIndex: 6,
     message:
       "In 2024, I flew out to New York for the final round of interviews, which was something I had never done before. I really appreciated you bringing me in to meet everyone and see the magic at Canary firsthand. You put me at ease right away, and I left feeling completely sure this was a team I wanted to join.\n\nI came into the role pretty nervous, honestly! You helped build my confidence and pushed me to think beyond just design and really focus on Product and the bigger picture. You challenged me in the best way and helped me grow into a much stronger, more thoughtful designer. I'll always appreciate our conversations, your calm perspective during high-pressure moments, and your ability to keep things light when we needed it most. You've had a real impact on me.\n\nThanks for taking a chance on me. It's been genuinely life-changing. Wishing you all the best in what's next. Don't be a stranger, come say hi when you're in SF! \uD83D\uDE0A",
-    photos: [],
+    photos: ["miguel1.jpg", "miguel2.jpg"],
   },
   {
     name: "Darshan",

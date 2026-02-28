@@ -339,16 +339,16 @@ export function MessageCarousel({
     if (isClosing) return;
     // Sync carousel to current expanded card before closing
     if (expandedIndex !== null) {
-      offsetX.set(-expandedIndex * spreadRef.current);
+      animate(offsetX, -expandedIndex * spreadRef.current, { type: "spring", stiffness: 200, damping: 25 });
       setActiveIndex(expandedIndex);
     }
-    // Clear immediately so the carousel card signature is visible during close animation
+    // Clear expandedInitialIndex so carousel card signature is visible during close
     setExpandedInitialIndex(null);
     setIsClosing(true);
     setTimeout(() => {
       setExpandedIndex(null);
       setIsClosing(false);
-    }, 350);
+    }, 400);
   }, [expandedIndex, offsetX, isClosing]);
 
   const navigateExpanded = useCallback(
@@ -581,11 +581,11 @@ export function MessageCarousel({
 
       {/* Expanded card overlay */}
       <AnimatePresence>
-        {expandedIndex !== null && expandedInitialIndex !== null && (
+        {expandedIndex !== null && (
           <ExpandedOverlay
             messages={messages}
             currentIndex={expandedIndex}
-            layoutIndex={expandedInitialIndex}
+            layoutIndex={expandedInitialIndex ?? expandedIndex}
             theme={CARD_THEMES[messages[expandedIndex].themeIndex]}
             onClose={collapseCard}
             onNavigate={navigateExpanded}
@@ -855,6 +855,9 @@ function ExpandedOverlay({
   const prevIndexRef = useRef(currentIndex);
   const direction = currentIndex > prevIndexRef.current ? 1 : currentIndex < prevIndexRef.current ? -1 : 0;
 
+  // Track outer container bg — only update after exit animation completes
+  const [overlayBg, setOverlayBg] = useState(currentTheme.bg);
+
   // Delay peeking cards after navigation
   const [peekReady, setPeekReady] = useState(false);
   useEffect(() => {
@@ -874,6 +877,8 @@ function ExpandedOverlay({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    // Reset scroll position on navigation
+    el.scrollTop = 0;
     const checkScroll = () => {
       const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
       setIsAtBottom(atBottom);
@@ -969,14 +974,14 @@ function ExpandedOverlay({
         className="fixed inset-0 z-50 overflow-y-auto"
         initial={false}
         animate={isClosing ? { opacity: 0, filter: "blur(20px)" } : { opacity: 1, filter: "blur(0px)" }}
-        style={{ touchAction: "pan-y", backgroundColor: currentTheme.bg }}
+        style={{ touchAction: "pan-y", backgroundColor: overlayBg }}
         transition={isClosing ? { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] } : spring}
         onPanStart={handlePanStart}
         onPan={handlePan}
         onPanEnd={handlePanEnd}
       >
         {/* Crossfading content — centered with max-width for readability */}
-        <AnimatePresence mode="wait" custom={direction}>
+        <AnimatePresence mode="wait" custom={direction} onExitComplete={() => setOverlayBg(currentTheme.bg)}>
           <motion.div
             key={currentIndex}
             custom={direction}
@@ -1011,6 +1016,7 @@ function ExpandedOverlay({
                 signature={SIGNATURE_MAP[message.name]}
                 theme={currentTheme}
                 fullBleed
+                postscript={message.postscript}
                 {...(message.photoAfterParagraph != null ? {
                   photoAfterParagraph: message.photoAfterParagraph,
                   inlinePhotos: (
@@ -1140,9 +1146,8 @@ function ExpandedOverlay({
               rotate: -1,
             } : undefined}
             exit={{
-              x: "-100%",
               opacity: 0,
-              transition: { type: "spring", visualDuration: 0.2, bounce: 0 },
+              transition: { duration: 0.1 },
             }}
             onClick={(e) => { e.stopPropagation(); onNavigate(currentIndex - 1); }}
           >
@@ -1171,9 +1176,8 @@ function ExpandedOverlay({
               rotate: 1,
             } : undefined}
             exit={{
-              x: "100%",
               opacity: 0,
-              transition: { type: "spring", visualDuration: 0.2, bounce: 0 },
+              transition: { duration: 0.1 },
             }}
             onClick={(e) => { e.stopPropagation(); onNavigate(currentIndex + 1); }}
           >
