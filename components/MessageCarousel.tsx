@@ -72,6 +72,8 @@ const SIGNATURE_MAP: Record<string, string> = {
   Ani: "ani.svg",
   Rachel: "rachel.svg",
   Vibhor: "vibhor.svg",
+  Wenjun: "wenjun.svg",
+  Marco: "marco.svg",
 };
 
 /* ── Props ─────────────────────────────────────── */

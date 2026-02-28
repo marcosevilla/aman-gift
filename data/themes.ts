@@ -51,4 +51,8 @@ export const CARD_THEMES: CardTheme[] = [
   { bg: "#3D3020", text: "#F0E6D4", shadowRgb: "20, 16, 10",  accent: "#C4A44E", isDark: true },
   // 17 — Deep Teal
   { bg: "#1E3B3B", text: "#D4ECEC", shadowRgb: "10, 20, 20",  accent: "#5DAA96", isDark: true },
+  // 18 — Soft Sky
+  { bg: "#E0EEF5", text: "#1E3344", shadowRgb: "30, 51, 68",  accent: "#5B9EC4", isDark: false },
+  // 19 — Warm Clay
+  { bg: "#F0DED2", text: "#3E2518", shadowRgb: "62, 37, 24",  accent: "#C27A58", isDark: false },
 ];

@@ -92,6 +92,15 @@ export const messages: TeamMessage[] = [
     photos: [],
   },
   {
+    name: "Marco",
+    themeIndex: 19,
+    message:
+      "Hi Aman!\n\nI can't thank you enough for taking a chance on me 2.5 years ago as your first hire at Canary. Back then you painted a clear vision for how the Product Team and Canary would grow. It's safe to say you backed it up.\n\nI remember being the wide-eyed newbie designer on the team, mentioning to you that this was the biggest Product org I'd ever been a part of (which is crazy to say, I know). Since then we've only gotten bigger and upped the ante. I'm still in awe of the talented group of people you brought together, the products we've launched, and all the invaluable lessons.\n\nYour passion for this company, your honesty, and your mentorship will be dearly missed. But more importantly, we'll miss your annual karaoke performance of \"I Want It That Way\" and your dad jokes (which I honestly found hilarious. PJ says I have dad humor).\n\nOnto the next adventure. Don't be a stranger!\n\nBest,",
+    photos: ["marco1.jpeg"],
+    photoAfterParagraph: 3,
+    audio: "iwantitthatway.mp3",
+  },
+  {
     name: "Miguel",
     themeIndex: 6,
     message:
@@ -149,5 +158,12 @@ export const messages: TeamMessage[] = [
     message:
       "Hey Aman - thanks for all the support, guidance, collaboration over the last year and half. It's been a pleasure working with you. I really appreciated your confidence in me, bringing me along on this ride. You've pushed me to be and do better, all throughout!\n\nSad to see you go - you'll definitely be missed. Will miss being surprised every time you joined our 1-1 call and said the first word haha. Good luck with all that's to come! Stay in touch! Vibhor",
     photos: ["vibhor1.jpg"],
+  },
+  {
+    name: "Wenjun",
+    themeIndex: 18,
+    message:
+      "Hi Aman,\n\nThanks for everything you did for Canary!\n\nThree years ago, Canary was a small company with a tiny product team. When I look back, I'm always amazed how far we've gone since you joined the company. Canary product team would've been very different without you.\n\nI've learned a lot over the last two years from you. You are a thoughtful product leader who always challenges us to raise the bar. Your line of questions have been guiding me to make every design decision. \u201CWhat would Aman ask and want to know?\u201D becomes my ritual to start any project.\n\nYou'll certainly be missed and best of luck!\n\nCheers,",
+    photos: [],
   },
 ];
