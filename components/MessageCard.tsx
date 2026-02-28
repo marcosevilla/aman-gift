@@ -102,11 +102,14 @@ export function MessageCard({ sender, message, signature, theme, fullBleed, inli
 
   return (
     <div
-      className={fullBleed ? "select-none" : "select-none rounded-2xl"}
+      className={fullBleed ? "select-none px-6 sm:px-[42px]" : "select-none rounded-2xl"}
       style={{
         ...(fullBleed ? {} : { backgroundColor: theme.bg }),
         fontFamily: "var(--font-newsreader), 'Newsreader', Georgia, serif",
-        padding: `${typo.paddingY}px ${typo.paddingX}px`,
+        paddingTop: `${typo.paddingY}px`,
+        paddingBottom: `${typo.paddingY}px`,
+        paddingLeft: fullBleed ? undefined : `${typo.paddingX}px`,
+        paddingRight: fullBleed ? undefined : `${typo.paddingX}px`,
         ...(fullBleed ? {} : {
           boxShadow: `
             0 1px 2px rgba(${theme.shadowRgb}, 0.04),
@@ -341,6 +344,7 @@ export function FloatingPhotos({
                       height={400}
                       className={isGrid ? "w-52 h-auto object-contain rounded-sm" : "w-80 h-auto object-contain rounded-sm"}
                       sizes={isGrid ? "208px" : "320px"}
+                      loading="lazy"
                     />
                     {audio && i === 0 && (
                       <motion.div
@@ -407,6 +411,7 @@ export function FloatingPhotos({
                     height={600}
                     className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg"
                     sizes="90vw"
+                    loading="lazy"
                   />
                 </motion.div>
               </motion.div>
@@ -465,6 +470,7 @@ export function FloatingPhotos({
                 height={200}
                 className="w-28 h-20 object-cover rounded-sm"
                 sizes="112px"
+                loading="lazy"
               />
               {photoCaption && i === 0 && (
                 <p
@@ -505,6 +511,7 @@ export function FloatingPhotos({
                   height={600}
                   className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg"
                   sizes="90vw"
+                  loading="lazy"
                 />
               </motion.div>
             </motion.div>

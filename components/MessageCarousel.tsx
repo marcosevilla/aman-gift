@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
 import {
   motion,
   animate,
@@ -42,6 +42,15 @@ const CARD_ROTATIONS = [
   -1.4, 3.1,
 ];
 
+/** Deterministic jitter — seeded per index so it's stable across renders */
+function seededJitter(i: number): { x: number; y: number } {
+  const seed = Math.sin(i * 9301 + 49297) * 49297;
+  const x = ((seed % 1000) / 1000 - 0.5) * 10; // ±5px
+  const y2 = ((Math.sin(i * 1301 + 7927) * 7927) % 1000) / 1000;
+  const yJitter = (y2 - 0.5) * 6; // ±3px
+  return { x, y: yJitter };
+}
+
 /** Maps sender name → SVG filename in /public/signatures/ */
 const SIGNATURE_MAP: Record<string, string> = {
   EJ: "ej.svg",
@@ -69,22 +78,25 @@ const SIGNATURE_MAP: Record<string, string> = {
 
 interface MessageCarouselProps {
   messages: TeamMessage[];
+  initialIndex?: number;
+  intro?: boolean;
 }
 
 /* ── Component ─────────────────────────────────── */
 
 export function MessageCarousel({
   messages,
+  initialIndex = 0,
+  intro = false,
 }: MessageCarouselProps) {
   /* ── DialKit: Carousel Physics ─────────────── */
   const params = useDialKit("Carousel", {
-    spread: [100, 60, 400],
+    spread: [130, 60, 400],
     scaleSide: [0.6, 0.3, 1],
-    entranceStagger: [0.04, 0, 0.2],
     dragElastic: [0.15, 0, 0.5],
     settleSpring: {
       stiffness: [180, 50, 500],
-      damping: [18, 5, 60],
+      damping: [17, 5, 60],
       mass: [1, 0.1, 5],
     },
     expand: {
@@ -95,12 +107,24 @@ export function MessageCarousel({
     backdropBlur: [8, 0, 24],
   });
 
+  /* ── DialKit: Intro ──────────────────────────── */
+  const introParams = useDialKit("Intro", {
+    textBlurIn: [1.2, 0.3, 2.5],
+    textPause: [1800, 400, 3000],
+    stackFadeIn: [1.6, 0.2, 3.0],
+    spreadStagger: [60, 20, 120],
+    spreadSpring: {
+      stiffness: [160, 80, 400],
+      damping: [22, 10, 40],
+    },
+  });
+
   const isNarrow = useIsNarrow();
-  const SPREAD = isNarrow ? Math.min(params.spread, 70) : params.spread;
+  const SPREAD = isNarrow ? Math.min(params.spread, 90) : params.spread;
   const SCALE_SIDE = params.scaleSide;
-  const ENTRANCE_STAGGER = params.entranceStagger;
   const SETTLE_SPRING = useMemo(
     () => ({
+      type: "spring" as const,
       stiffness: params.settleSpring.stiffness,
       damping: params.settleSpring.damping,
       mass: params.settleSpring.mass,
@@ -117,14 +141,86 @@ export function MessageCarousel({
   );
   const SPRING_SNAPPY = { type: "spring" as const, visualDuration: 0.15, bounce: 0 };
 
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [expandedInitialIndex, setExpandedInitialIndex] = useState<number | null>(null);
-  const [hasMounted, setHasMounted] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
+  /* ── Intro state ────────────────────────────── */
+  const [introStage, setIntroStage] = useState<number | null>(intro ? 0 : null);
+  const [introTapped, setIntroTapped] = useState(false);
+  const [introTextVisible, setIntroTextVisible] = useState(true);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+
+  // Stack positions for intro (deterministic jitter)
+  const stackPositions = useMemo(
+    () =>
+      messages.map((_, i) => {
+        const jitter = seededJitter(i);
+        return {
+          x: jitter.x,
+          y: -i * 0.4 + jitter.y,
+          rotate: CARD_ROTATIONS[i % CARD_ROTATIONS.length] * 0.3,
+          scale: 1 - i * 0.002,
+        };
+      }),
+    [messages]
+  );
+
+  // Intro config passed to CarouselCard
+  const introConfig = useMemo(
+    () => ({
+      stackFadeIn: introParams.stackFadeIn,
+      spring: {
+        stiffness: introParams.spreadSpring.stiffness,
+        damping: introParams.spreadSpring.damping,
+      },
+      stagger: introParams.spreadStagger,
+      totalCards: messages.length,
+    }),
+    [introParams.stackFadeIn, introParams.spreadSpring.stiffness, introParams.spreadSpring.damping, introParams.spreadStagger, messages.length]
+  );
+
+  /* ── Intro stage progression — auto-advance 0→4 ── */
+  /* Stage 1: "Dear Aman" blurs in
+     Stage 2: "Thank you" blurs in
+     Stage 3: text slides up
+     Stage 4: card stack fades in + "Tap to expand"
+     Stage 5: cards spread to carousel (on tap)            */
+  useEffect(() => {
+    if (!intro) return;
+    const pause = introParams.textPause;
+    const t1 = 600;                  // beat before "Dear Aman," appears
+    const t2 = t1 + pause;           // "Thank you" blurs in
+    const t3 = t2 + pause;           // text splits apart
+    const t4 = t3 + 400;             // cards start fading in as text is still splitting
+    const timers = [
+      setTimeout(() => setIntroStage(1), t1),
+      setTimeout(() => setIntroStage(2), t2),
+      setTimeout(() => setIntroStage(3), t3),
+      setTimeout(() => setIntroStage(4), t4),
+    ];
+    return () => timers.forEach(clearTimeout);
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ── Intro: Tap to expand → spread → carousel ─── */
+  const handleTapBegin = useCallback(() => {
+    if (introStage === null || introStage < 4 || introTapped) return;
+    setIntroTapped(true);
+    // Brief scale dip for tap feedback, then spread
+    setTimeout(() => setIntroStage(5), 120);
+    // Fade out text when cards settle into final positions
+    const lastCardDelay = messages.length * introParams.spreadStagger;
+    const spreadSettleTime = 120 + lastCardDelay + 500;
+    setTimeout(() => setIntroTextVisible(false), spreadSettleTime);
+    // Enable carousel after text fade completes
+    setTimeout(() => setIntroStage(null), spreadSettleTime + 400);
+  }, [introStage, introTapped, messages.length, introParams.spreadStagger]);
+
   // Continuous offset — 0 = card 0 centered, -SPREAD = card 1 centered, etc.
-  const offsetX = useMotionValue(0);
+  const offsetX = useMotionValue(-initialIndex * SPREAD);
   const isDragging = useRef(false);
   const panStartOffset = useRef(0);
   const animRef = useRef<{ stop: () => void } | null>(null);
@@ -132,9 +228,18 @@ export function MessageCarousel({
 
   // Store SPREAD in a ref for stable callbacks
   const spreadRef = useRef(SPREAD);
+  const prevSpreadRef = useRef(SPREAD);
   spreadRef.current = SPREAD;
   const settleSpringRef = useRef(SETTLE_SPRING);
   settleSpringRef.current = SETTLE_SPRING;
+
+  // Resync offsetX when SPREAD changes (mobile detection, window resize)
+  useEffect(() => {
+    if (prevSpreadRef.current !== SPREAD) {
+      prevSpreadRef.current = SPREAD;
+      offsetX.set(-activeIndex * SPREAD);
+    }
+  }, [SPREAD, activeIndex, offsetX]);
 
   // Derive activeIndex from continuous offset (nearest card)
   useMotionValueEvent(offsetX, "change", (latest) => {
@@ -146,22 +251,16 @@ export function MessageCarousel({
     }
   });
 
-  // Mark entrance animation done after stagger completes
-  useEffect(() => {
-    const timeout = setTimeout(
-      () => setHasMounted(true),
-      (count * ENTRANCE_STAGGER + 0.5) * 1000
-    );
-    return () => clearTimeout(timeout);
-  }, [count, ENTRANCE_STAGGER]);
-
   /* ── Settle to nearest card ────────────────── */
 
   const settleTo = useCallback(
-    (index: number) => {
+    (index: number, velocity = 0) => {
       const clamped = Math.max(0, Math.min(index, count - 1));
       setActiveIndex(clamped);
-      animRef.current = animate(offsetX, -clamped * spreadRef.current, settleSpringRef.current);
+      animRef.current = animate(offsetX, -clamped * spreadRef.current, {
+        ...settleSpringRef.current,
+        velocity,
+      });
     },
     [count, offsetX]
   );
@@ -171,6 +270,7 @@ export function MessageCarousel({
   const handlePanStart = useCallback(() => {
     isDragging.current = true;
     panStartOffset.current = offsetX.get();
+    if (showSwipeHint) setShowSwipeHint(false);
     // Cancel any in-flight settle animation
     if (animRef.current) {
       animRef.current.stop();
@@ -206,7 +306,7 @@ export function MessageCarousel({
       const projectedIndex = Math.round(-projectedOffset / spreadRef.current);
       const clamped = Math.max(0, Math.min(projectedIndex, count - 1));
 
-      settleTo(clamped);
+      settleTo(clamped, info.velocity.x);
 
       // Clear drag flag after a tick so click handlers can check it
       setTimeout(() => { isDragging.current = false; }, 50);
@@ -240,10 +340,11 @@ export function MessageCarousel({
       offsetX.set(-expandedIndex * spreadRef.current);
       setActiveIndex(expandedIndex);
     }
+    // Clear immediately so the carousel card signature is visible during close animation
+    setExpandedInitialIndex(null);
     setIsClosing(true);
     setTimeout(() => {
       setExpandedIndex(null);
-      setExpandedInitialIndex(null);
       setIsClosing(false);
     }, 350);
   }, [expandedIndex, offsetX, isClosing]);
@@ -283,36 +384,98 @@ export function MessageCarousel({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeIndex, expandedIndex, count, settleTo, navigateExpanded, collapseCard]);
 
+  /* ── Swipe hint — show after intro, dismiss on timer or first swipe ── */
+  useEffect(() => {
+    if (introStage !== null || !intro) return;
+    // Small delay so it appears after cards settle
+    const show = setTimeout(() => setShowSwipeHint(true), 600);
+    const hide = setTimeout(() => setShowSwipeHint(false), 4000);
+    return () => { clearTimeout(show); clearTimeout(hide); };
+  }, [introStage, intro]);
+
   /* ── Render ──────────────────────────────────── */
 
-  return (
-    <div className="flex flex-col items-center justify-center min-h-dvh py-8 overflow-hidden">
-      {/* "Dear Aman," heading — hidden for now */}
-      {/* <div
-        className="mb-6"
-        style={{
-          width: "280px",
-          height: "60px",
-          backgroundColor: "#3D2C1E",
-          maskImage: "url(/dear-aman.svg)",
-          WebkitMaskImage: "url(/dear-aman.svg)",
-          maskSize: "contain",
-          WebkitMaskSize: "contain",
-          maskRepeat: "no-repeat",
-          WebkitMaskRepeat: "no-repeat",
-          maskPosition: "center",
-          WebkitMaskPosition: "center",
-        }}
-        role="img"
-        aria-label="Dear Aman,"
-      /> */}
+  const introComplete = introStage === null;
 
+  return (
+    <div className="relative flex flex-col items-center justify-center h-dvh overflow-hidden" style={{ touchAction: "pan-x" }}>
+
+      {/* ── Intro text: "Dear Aman," slides UP, "Thank you" slides DOWN ── */}
+      <AnimatePresence>
+        {introStage !== null && introStage >= 1 && introTextVisible && (
+          <motion.div
+            key="intro-text-top"
+            className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none will-change-transform"
+            animate={introStage >= 3 ? { y: -(CARD_H / 2 + 90) } : { y: -24 }}
+            exit={{ opacity: 0, filter: "blur(8px)", transition: { duration: 0.4 } }}
+            transition={{ type: "spring", stiffness: 80, damping: 16, mass: 1 }}
+          >
+            <p
+              className="text-3xl select-none transition-all ease-out"
+              style={{
+                color: "#3D2C1E",
+                fontFamily: "var(--font-newsreader), 'Newsreader', Georgia, serif",
+                transitionDuration: `${introParams.textBlurIn}s`,
+                filter: introStage >= 1 ? "blur(0px)" : "blur(12px)",
+                opacity: introStage >= 1 ? 1 : 0,
+                transform: introStage >= 1 ? "translateY(0)" : "translateY(8px)",
+              }}
+            >
+              Dear Aman,
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {introStage !== null && introStage >= 1 && introTextVisible && (
+          <motion.div
+            key="intro-text-bottom"
+            className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none will-change-transform"
+            animate={introStage >= 3 ? { y: CARD_H / 2 + 90 } : { y: 24 }}
+            exit={{ opacity: 0, filter: "blur(8px)", transition: { duration: 0.4 } }}
+            transition={{ type: "spring", stiffness: 80, damping: 16, mass: 1 }}
+          >
+            <p
+              className="text-3xl select-none transition-all ease-out"
+              style={{
+                color: "#3D2C1E",
+                fontFamily: "var(--font-newsreader), 'Newsreader', Georgia, serif",
+                transitionDuration: `${introParams.textBlurIn}s`,
+                filter: introStage >= 2 ? "blur(0px)" : "blur(12px)",
+                opacity: introStage >= 2 ? 1 : 0,
+                transform: introStage >= 2 ? "translateY(0)" : "translateY(8px)",
+              }}
+            >
+              Thank you for everything!
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Card area (carousel + intro stack share the same cards) ── */}
       <motion.div
+        initial={intro ? { opacity: 0, filter: "blur(12px)" } : undefined}
         animate={{
-          filter: expandedIndex !== null && !isClosing ? "blur(6px)" : "blur(0px)",
-          opacity: expandedIndex !== null && !isClosing ? 0.4 : 1,
+          filter: expandedIndex !== null && !isClosing
+            ? "blur(6px)"
+            : introStage !== null && introStage < 4
+              ? "blur(12px)"
+              : "blur(0px)",
+          opacity: expandedIndex !== null && !isClosing
+            ? 0.4
+            : introStage !== null && introStage < 4
+              ? 0
+              : 1,
+          scale: introTapped && introStage !== null && introStage < 5 ? 0.97 : 1,
         }}
-        transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={
+          introTapped && introStage !== null && introStage < 5
+            ? { type: "spring", stiffness: 600, damping: 15 }
+            : introStage === 4
+              ? { duration: introParams.stackFadeIn, ease: [0.25, 0.1, 0.25, 1] }
+              : { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }
+        }
       >
       {/* Carousel track */}
       <div className="relative w-full">
@@ -322,11 +485,13 @@ export function MessageCarousel({
             width: "100%",
             height: CARD_H + 40,
             touchAction: "pan-y",
-            cursor: "grab",
+            cursor: introComplete ? "grab" : "default",
           }}
-          onPanStart={handlePanStart}
-          onPan={handlePan}
-          onPanEnd={handlePanEnd}
+          {...(introComplete ? {
+            onPanStart: handlePanStart,
+            onPan: handlePan,
+            onPanEnd: handlePanEnd,
+          } : {})}
         >
           {messages.map((msg, i) => (
           <CarouselCard
@@ -336,52 +501,81 @@ export function MessageCarousel({
             theme={CARD_THEMES[msg.themeIndex]}
             offsetX={offsetX}
             activeIndex={activeIndex}
-            hasMounted={hasMounted}
             isDragging={isDragging}
             isExpanding={expandedInitialIndex === i}
             spread={SPREAD}
             scaleSide={SCALE_SIDE}
-            entranceStagger={ENTRANCE_STAGGER}
-            spring={SPRING}
             onTapActive={() => expandCard(i)}
             onTapSide={() => navigateTo(i)}
+            introStage={introStage}
+            stackPosition={stackPositions[i]}
+            introConfig={introConfig}
           />
         ))}
+
+          {/* "Tap to expand" card — on top of stack during stage 4 */}
+          <AnimatePresence>
+            {introStage === 4 && (
+              <motion.div
+                key="tap-card"
+                className="absolute rounded-2xl flex items-center justify-center cursor-pointer"
+                style={{
+                  width: CARD_W,
+                  height: CARD_H,
+                  backgroundColor: "#1E3B3B",
+                  border: "1.5px solid rgba(10, 20, 20, 0.25)",
+                  boxShadow: "0 4px 16px rgba(10, 20, 20, 0.2)",
+                  zIndex: messages.length + 1,
+                  rotate: 2.5,
+                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.25 } }}
+                whileHover={{ rotate: -3, scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                onClick={handleTapBegin}
+              >
+                <motion.p
+                  className="text-2xl tracking-wide select-none"
+                  style={{
+                    color: "#D4ECEC",
+                    fontFamily: "var(--font-newsreader), 'Newsreader', Georgia, serif",
+                  }}
+                  animate={{
+                    opacity: [0.5, 0.9, 0.5],
+                  }}
+                  transition={{ duration: 2.5, repeat: Infinity }}
+                >
+                  Tap to expand
+                </motion.p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
 
-      {/* Progress bar */}
-      <div className="mt-6">
-        <div className="w-32 h-1 bg-paper-200 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-caramel rounded-full"
-            animate={{ width: `${((activeIndex + 1) / count) * 100}%` }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          />
-        </div>
-      </div>
       </motion.div>
 
-      {/* "Thank you for everything" — hidden for now */}
-      {/* <div
-        className="mt-8"
-        style={{
-          width: "440px",
-          height: "72px",
-          backgroundColor: "#3D2C1E",
-          maskImage: "url(/thank-you-for-everything.svg)",
-          WebkitMaskImage: "url(/thank-you-for-everything.svg)",
-          maskSize: "contain",
-          WebkitMaskSize: "contain",
-          maskRepeat: "no-repeat",
-          WebkitMaskRepeat: "no-repeat",
-          maskPosition: "center",
-          WebkitMaskPosition: "center",
-        }}
-        role="img"
-        aria-label="Thank you for everything"
-      /> */}
-
+      {/* ── Swipe hint ── */}
+      <AnimatePresence>
+        {showSwipeHint && (
+          <motion.p
+            key="swipe-hint"
+            className="absolute bottom-12 select-none pointer-events-none tracking-wide"
+            style={{
+              color: "rgba(61, 44, 30, 0.45)",
+              fontFamily: "var(--font-newsreader), 'Newsreader', Georgia, serif",
+              fontSize: "0.875rem",
+            }}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4, transition: { duration: 0.4 } }}
+            transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+          >
+            ←&ensp;{isNarrow ? "Swipe" : "Drag"} to navigate&ensp;→
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       {/* Expanded card overlay */}
       <AnimatePresence>
@@ -414,92 +608,170 @@ interface CarouselCardProps {
   theme: CardTheme;
   offsetX: ReturnType<typeof useMotionValue<number>>;
   activeIndex: number;
-  hasMounted: boolean;
   isDragging: React.RefObject<boolean>;
   isExpanding: boolean;
   spread: number;
   scaleSide: number;
-  entranceStagger: number;
-  spring: { type: "spring"; visualDuration: number; bounce: number };
   onTapActive: () => void;
   onTapSide: () => void;
+  // Intro
+  introStage: number | null;
+  stackPosition: { x: number; y: number; rotate: number; scale: number };
+  introConfig: {
+    stackFadeIn: number;
+    spring: { stiffness: number; damping: number };
+    stagger: number;
+    totalCards: number;
+  };
 }
 
-function CarouselCard({
+const CarouselCard = memo(function CarouselCard({
   msg,
   index,
   theme,
   offsetX,
   activeIndex,
-  hasMounted,
   isDragging,
   isExpanding,
   spread,
   scaleSide,
-  entranceStagger,
-  spring,
   onTapActive,
   onTapSide,
+  introStage,
+  stackPosition,
+  introConfig,
 }: CarouselCardProps) {
   const isActive = index === activeIndex;
+  const isCenter = index === activeIndex;
   const baseRotation = CARD_ROTATIONS[index % CARD_ROTATIONS.length];
 
-  // Derive x position from continuous offset — cards move 1:1 with drag
-  const x = useTransform(offsetX, (v) => v + index * spread);
+  // Always compute useTransform (hooks must be unconditional)
+  const xFromOffset = useTransform(offsetX, (v) => v + index * spread);
+  const scaleFromX = useTransform(
+    xFromOffset,
+    [-spread * 2, -spread, 0, spread, spread * 2],
+    [scaleSide * 0.85, scaleSide, SCALE_ACTIVE, scaleSide, scaleSide * 0.85]
+  );
+  const rotateFromX = useTransform(
+    xFromOffset,
+    [-spread, 0, spread],
+    [baseRotation, 0, baseRotation]
+  );
 
-  // Derive scale: smooth interpolation from scaleSide → 1.0 → scaleSide
-  const scale = useTransform(x, [-spread * 2, -spread, 0, spread, spread * 2], [scaleSide * 0.85, scaleSide, SCALE_ACTIVE, scaleSide, scaleSide * 0.85]);
+  // Local motion values — controlled by intro OR synced from useTransform
+  const introActive = introStage !== null;
+  const localX = useMotionValue(introActive ? 0 : xFromOffset.get());
+  const localY = useMotionValue(0);
+  const localScale = useMotionValue(introActive ? 1 : scaleFromX.get());
+  const localRotate = useMotionValue(introActive ? 0 : rotateFromX.get());
+  const localOpacity = useMotionValue(introActive ? 0 : 1);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-  // Derive rotation: 0° when centered, baseRotation when off-center
-  const rotate = useTransform(x, [-spread, 0, spread], [baseRotation, 0, baseRotation]);
+  const introComplete = introStage === null;
 
-  // All cards at full opacity
-  const opacity = 1;
+  // When intro completes → animate to useTransform values & subscribe
+  useEffect(() => {
+    if (!introComplete) return;
 
-  // Derive z-index: highest at center, falls off with distance
+    const springCfg = { type: "spring" as const, stiffness: 150, damping: 20 };
+
+    // Animate from intro final positions to carousel-derived positions
+    animate(localX, xFromOffset.get(), springCfg);
+    animate(localY, 0, springCfg);
+    animate(localScale, scaleFromX.get(), springCfg);
+    animate(localRotate, rotateFromX.get(), springCfg);
+    localOpacity.set(1);
+
+    // Subscribe after a short delay so the transition animation plays first
+    const subTimer = setTimeout(() => {
+      const unsubs = [
+        xFromOffset.on("change", (v) => localX.set(v)),
+        scaleFromX.on("change", (v) => localScale.set(v)),
+        rotateFromX.on("change", (v) => localRotate.set(v)),
+      ];
+      // Store cleanup in ref-like pattern
+      cleanupRef.current = () => unsubs.forEach((fn) => fn());
+    }, 500);
+
+    return () => {
+      clearTimeout(subTimer);
+      if (cleanupRef.current) { cleanupRef.current(); cleanupRef.current = null; }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [introComplete]);
+
+  // Handle intro stage transitions
+  useEffect(() => {
+    if (introComplete) return;
+
+    if (introStage === 4) {
+      // Snap to stack position (parent handles blur + fade)
+      localX.set(stackPosition.x);
+      localY.set(stackPosition.y);
+      localScale.set(stackPosition.scale);
+      localRotate.set(stackPosition.rotate);
+      localOpacity.set(1);
+    } else if (introStage === 5) {
+      // Animate from stack → carousel resting position
+      // Deal from top: highest-index card (top of stack) peels off first
+      const totalCards = introConfig.totalCards;
+      const reverseDelay = (totalCards - 1 - index) * (introConfig.stagger / 1000);
+      const targetX = (index - activeIndex) * spread;
+      const targetScale = isCenter ? SCALE_ACTIVE : scaleSide;
+      const targetRotate = isCenter ? 0 : baseRotation;
+      const cfg = {
+        type: "spring" as const,
+        stiffness: introConfig.spring.stiffness,
+        damping: introConfig.spring.damping,
+        delay: reverseDelay,
+      };
+      animate(localX, targetX, cfg);
+      animate(localY, 0, cfg);
+      animate(localScale, targetScale, cfg);
+      animate(localRotate, targetRotate, cfg);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [introStage]);
+
+  // Derive z-index reactively from position — card closest to center is always on top
+  const localZIndex = useTransform(localX, (x) => {
+    if (introStage !== null && introStage <= 4) return index; // stack order during intro
+    // Stage 5 (dealing) and carousel: position-based z-index (center = highest)
+    return Math.max(0, Math.round(1000 - Math.abs(x)));
+  });
+
+  // Cull far off-screen cards (carousel mode only)
   const distFromCenter = Math.abs(index - activeIndex);
-  const zIndex = isActive ? 10 : 5 - distFromCenter;
-
-  // Cull cards far off-screen
-  if (distFromCenter > 8) return null;
+  if (introComplete && distFromCenter > 8) return null;
 
   return (
     <motion.div
-      layoutId={`card-${index}`}
+      {...(introComplete ? { layoutId: `card-${index}` } : {})}
       className="absolute cursor-pointer select-none"
       style={{
         width: CARD_W,
         height: CARD_H,
-        x,
-        scale,
-        rotate,
-        opacity,
-        zIndex,
+        x: localX,
+        y: localY,
+        scale: localScale,
+        rotate: localRotate,
+        opacity: localOpacity,
+        zIndex: localZIndex,
       }}
-      // Entrance animation only on first mount
-      {...(!hasMounted
-        ? {
-            initial: { x: 400, opacity: 0, scale: 0.8 },
-            animate: { x: index * spread, opacity: 1, scale: index === 0 ? 1 : scaleSide },
-            transition: { ...spring, delay: index * entranceStagger },
-          }
-        : {})}
       onClick={() => {
+        if (!introComplete) return;
         if (isDragging.current) return;
-        if (isActive) {
-          onTapActive();
-        } else {
-          onTapSide();
-        }
+        if (isActive) onTapActive();
+        else onTapSide();
       }}
     >
       {/* Preview card */}
       <div
-        className="w-full h-full overflow-hidden flex flex-col items-center justify-center p-5 rounded-2xl"
+        className="w-full h-full overflow-hidden flex flex-col items-center justify-center p-5 rounded-2xl transition-shadow duration-500 ease-out"
         style={{
           backgroundColor: theme.bg,
           border: `1.5px solid rgba(${theme.shadowRgb}, ${theme.isDark ? 0.25 : 0.1})`,
-          boxShadow: isActive
+          boxShadow: isActive && introComplete
             ? `0 1px 2px rgba(${theme.shadowRgb}, 0.06), 0 4px 12px rgba(${theme.shadowRgb}, 0.07), 0 10px 28px rgba(${theme.shadowRgb}, 0.05)`
             : `0 1px 2px rgba(${theme.shadowRgb}, 0.04), 0 3px 8px rgba(${theme.shadowRgb}, 0.05)`,
         }}
@@ -539,7 +811,7 @@ function CarouselCard({
       </div>
     </motion.div>
   );
-}
+});
 
 /* ── Expanded Overlay ──────────────────────────── */
 
@@ -730,7 +1002,7 @@ function ExpandedOverlay({
             exit="exit"
             transition={{ duration: crossfadeDuration * 1.2, ease: [0.25, 0.1, 0.25, 1] }}
           >
-            <div className="w-full max-w-2xl mx-auto px-6 py-16">
+            <div className="w-full max-w-2xl mx-auto px-0 sm:px-6 pt-8 pb-16 sm:pt-16">
               <MessageCard
                 sender={message.name}
                 message={message.message}

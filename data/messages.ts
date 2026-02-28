@@ -15,21 +15,21 @@ export const messages: TeamMessage[] = [
     themeIndex: 2,
     message:
       "Sadly we don't have a photo together (we'll have to change that) but this is a pic of me accepting the role at Canary, harkening back to us having a spotty service conversation while I was on vacation. I won't forget the care you put into getting to know me and making me feel valued and excited about the role.\n\nThank you so much for being a great mentor and someone I can freely talk to and get advice from. And for being someone that also eats on camera without shame. You will be very missed \u2764\uFE0F",
-    photos: ["bree1.png"],
+    photos: ["bree1.jpg"],
   },
   {
     name: "Quinn",
     themeIndex: 16,
     message:
       "Aman, you are a thoughtful dude who can cut to the heart of an issue or opportunity, empowers the people around you to think big, and genuinely cares for the people around you.\n\nBut the memory that will stick out the most is the egregiously bad game of pop-a-shot we shared at Camp Canary. Whatever the opposite of \"on fire\" is, we were that.\n\nThanks for everything and best of luck.",
-    photos: ["quinn1.png"],
+    photos: ["quinn1.jpg"],
   },
   {
     name: "Jess",
     themeIndex: 5,
     message:
       "Aman, It's so sad to see you go \u2014 I honestly can't imagine the Product Team without you. I'll always be grateful that you saw something in me and brought me onto the Canary team. That meant so much to me!\n\nThis is still one of my favorite team pictures. I had only been at Canary a few months \u2014 so excited for Camp Canary and trying to get all the details about those two days in Tarrytown. You told me it was going to be so much fun and that I'd definitely end up doing karaoke. I said \"absolutely not me\"\u2026 and of course I ended up on stage singing.\n\nThank you for the laughs, the encouragement, and for believing in me from the start. Wishing you the absolute best on your next adventure \u2014 I know you're going to crush it. \uD83D\uDC9B",
-    photos: ["jess1.png", "jess2.png"],
+    photos: ["jess1.jpg", "jess2.jpg"],
     photoAfterParagraph: 0,
     inlinePhotoCount: 1,
   },
@@ -66,7 +66,7 @@ export const messages: TeamMessage[] = [
     themeIndex: 13,
     message:
       "I was three days away from signing on at Bloomberg when you asked me what it would take for me to cancel that meeting. I know you moved mountains to make the Canary hiring process go faster to get me onboard, and I'm forever grateful that you did because you helped me make one of my best decisions ever.\n\nThank you for everything!",
-    photos: ["brad1.png"],
+    photos: ["brad1.jpg"],
     photoCaption: "when this album dropped \uD83D\uDD25\uD83D\uDD25\uD83D\uDD25",
   },
   {
@@ -81,7 +81,7 @@ export const messages: TeamMessage[] = [
     themeIndex: 10,
     message:
       "Aman, thanks for being my intro into Canary and for being a source of guidance and driver of team culture over the last year! I'm sad to see you go, but know great things are ahead for you. I've always admired the personal touches you've applied throughout my time at Canary, whether that's your availability during my interview process, sending ice cream to all the new joiners, or sending a really sweet one year anniversary gift.\n\nWe'll miss you but know this is just the end of a chapter and not the end of the book. Stay in touch and looking forward to crossing paths again in the future!\n\n(I sadly don't have any photos of us together but hope you will enjoy reflecting on our super hacky v0 of kiosk that we demo'd where I picked up all the \"casing\" the night before at Target)",
-    photos: ["connor1.png", "connor2.png", "connor3.png", "connor4.png"],
+    photos: ["connor1.jpg", "connor2.jpg", "connor3.jpg", "connor4.jpg"],
     photoAfterParagraph: 1,
   },
   {
@@ -110,7 +110,7 @@ export const messages: TeamMessage[] = [
     themeIndex: 15,
     message:
       "My my my\u2026 where to begin. First of all, you're officially the longest manager I've ever had... that alone deserves an award. We've definitely had our ups and downs, and I think we've both grown a lot over our time working together. Thank you for always pushing me to the next level and supporting me through all my role progressions and changes. I've genuinely felt backed by you every step of the way, and I really appreciate everything you've done to help me get to where I am today. It was so refreshing to have a manager who had been through such a similar journey and could guide me along the \"happy\" path of what can be a pretty challenging ride. I hope I can pay that forward to others.\n\nOn a personal note, I'm really going to miss you. As disappointed as I am that you're Team Taylor instead of Team Dua, I've always loved our banter. You made work more fun! From me pity-laughing at your bad dad jokes to our heated debates about things that absolutely do not matter (literally just try Diet Pepsi).\n\nI truly wish you the very best in this next chapter. I'm so happy you're taking time for yourself. You'll be missed. \uD83E\uDD0D",
-    photos: ["becca1.png"],
+    photos: ["becca1.jpg"],
     photoAfterParagraph: 0,
     audio: "houdini.mp3",
   },
@@ -133,7 +133,7 @@ export const messages: TeamMessage[] = [
     themeIndex: 11,
     message:
       "Aman, It's hard to imagine Canary without you. Watching you build and scale the Product team over the years has been great to watch. The thoughtfulness and ambition you brought have shaped not just the product, but Canary. Canary wouldn't be what it is today without you.\n\nI'll always remember our onsite visit in Berlin to the Vienna House Potsdamer Platz and their very intense General Manager, and how we followed it up with a trip to the kebab shop.\n\nThank you for everything you've built here and the impact you've had on all of us. Excited to see what you do next, they're lucky to have you. Hopefully your future customer meetings are more exciting than this one we had with TUI at ITB Berlin.",
-    photos: ["ani1.png"],
+    photos: ["ani1.jpg"],
     photoAfterParagraph: 1,
   },
   {
@@ -148,6 +148,6 @@ export const messages: TeamMessage[] = [
     themeIndex: 10,
     message:
       "Hey Aman - thanks for all the support, guidance, collaboration over the last year and half. It's been a pleasure working with you. I really appreciated your confidence in me, bringing me along on this ride. You've pushed me to be and do better, all throughout!\n\nSad to see you go - you'll definitely be missed. Will miss being surprised every time you joined our 1-1 call and said the first word haha. Good luck with all that's to come! Stay in touch! Vibhor",
-    photos: ["vibhor1.png"],
+    photos: ["vibhor1.jpg"],
   },
 ];

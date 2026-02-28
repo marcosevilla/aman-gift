@@ -14,19 +14,20 @@ A sentimental farewell experience for Aman Shahi — an interactive digital card
 ```
 app/
   layout.tsx              — Root layout (+ Agentation dev toolbar)
-  page.tsx                — Main entry point (phase state machine)
+  page.tsx                — Main entry point (just renders MessageCarousel with intro prop)
   globals.css             — Global styles + Tailwind theme
   favicon.ico
 components/
-  MessageCarousel.tsx     — Swipeable carousel + expanded card overlay (replaced CardStack/CardFan)
+  IntroSequence.tsx       — (UNUSED — superseded by merged carousel intro)
+  MessageCarousel.tsx     — Unified intro + swipeable carousel + expanded overlay + CarouselCard
   MessageCard.tsx         — Full message display + floating photos + audio play button
-  Envelope.tsx            — Opening animation
-  CoverCard.tsx           — Cover screen
-  FinalCard.tsx           — End screen with confetti
 data/
   messages.ts             — TeamMessage[] (18 messages, optional audio field)
-public/photos/            — Photo assets
+  themes.ts               — CARD_THEMES array (18 themes)
+public/photos/            — Photo assets (JPG, max 800px, ~1.5MB total)
+public/photos/originals/  — Original PNGs (backup, not served)
 public/music/             — Audio clips (e.g. houdini.mp3 for Becca)
+public/signatures/        — Handwritten name SVGs (19 team members)
 next.config.ts            — Next.js config (React Compiler enabled)
 postcss.config.mjs        — PostCSS config
 ```
@@ -44,20 +45,36 @@ postcss.config.mjs        — PostCSS config
 - FigJam source: https://www.figma.com/board/UYI3L2trLTlakiiTsxxe8d/au-revoir
 
 ## Current State
-- **Last worked on:** Audio play button on Becca's photo (Dua Lipa / Houdini reference)
+- **Last worked on:** Mobile performance audit + polish pass (animations, images, interactions)
 - **Completed this session:**
-  - Added `audio?: string` field to `TeamMessage` interface
-  - Implemented audio play/pause button overlaid on Becca's inline photo
-  - Smooth fade-in/fade-out (400ms rAF-based volume interpolation) on play, pause, and track end
-  - Disabled photo-expand on audio photos — entire photo area is play/pause only
-  - Bigger play button (64px circle, 24px icons) with `group-hover:scale-110` hover state
-  - Audio auto-stops on unmount (navigating away from Becca's card)
-  - Threaded `audio` prop through MessageCarousel → FloatingPhotos
-- **In progress:** Handwritten name SVGs (researched, Calligrapher.ai recommended, not yet implemented)
+  - Merged IntroSequence into MessageCarousel — same DOM elements from stack → carousel (no jumpiness)
+  - CarouselCard uses local MotionValues: imperatively animated during intro, then synced from useTransform
+  - Reactive z-index via `useTransform(localX)` — active card always on top during scroll
+  - Physics-based bounce on carousel settle (spring with velocity passthrough, damping 17)
+  - Smooth intro-to-carousel scale/position transition (spring animate instead of snap)
+  - CSS transition on card box-shadow (`transition-shadow duration-500`)
+  - Intro text blur-in converted from Framer Motion to CSS transitions (fixes mobile jank)
+  - "Tap to expand" card text (was "Tap to begin")
+  - Swipe/Drag hint below carousel (auto-dismiss after 3.4s or on first swipe, responsive text)
+  - Locked vertical scroll on carousel (`touch-action: pan-x`, `h-dvh overflow-hidden`)
+  - Reduced expanded card top padding on mobile (`pt-8 pb-16 sm:pt-16`)
+  - Signature visible immediately on expanded view close (clear `expandedInitialIndex` on close start)
+  - **Performance pass:**
+    - Compressed all photos: 56.2 MB PNG → 1.56 MB JPG (97% reduction, 800px max, quality 80)
+    - Added `loading="lazy"` to all 4 Image instances in MessageCard
+    - Wrapped CarouselCard in `React.memo` (prevents unnecessary re-renders during drag)
+    - `will-change-transform` on intro text for GPU compositing
+  - Simplified `page.tsx` to single `<MessageCarousel messages={messages} initialIndex={9} intro />`
+- **In progress:** Nothing open
 - **Known issues:**
+  - `IntroSequence.tsx` still exists but is unused (can be deleted)
   - Agentation MCP server needs Claude Code restart to load
   - DialKit spring config objects cause TS errors — use folder of explicit sliders instead
+  - Pass 2 performance items pending: remove animated `filter: blur()`, optimize signature SVGs, fix expanded overlay remounting
 - **Files modified this session:**
-  - `data/messages.ts` (added `audio` field to interface + Becca's entry)
-  - `components/MessageCard.tsx` (audio play button, fade logic, disabled expand for audio photos)
-  - `components/MessageCarousel.tsx` (threaded `audio` prop to inline FloatingPhotos)
+  - `components/MessageCarousel.tsx` (merged intro, memo, culling, settle spring, swipe hint, scroll lock, shadow transition, scale animation)
+  - `components/MessageCard.tsx` (lazy loading on all images)
+  - `data/messages.ts` (photo references .png → .jpg)
+  - `app/page.tsx` (simplified to single carousel component)
+  - `public/photos/*.jpg` (compressed from PNG originals)
+  - `public/photos/originals/` (backup of original PNGs)
